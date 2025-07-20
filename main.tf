@@ -4,7 +4,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 3.34.0"
+      version = "~> 5.0"
     }
   }
 }
@@ -359,4 +359,3 @@ resource "aws_route53_record" "website_cdn_redirect_record" {
     evaluate_target_health = false
   }
 }
-
