@@ -1,9 +1,15 @@
 # Local .terraform directories
 .terraform/
+.terraform.lock.hcl
 
 # Compiled .tfstate files
 *.tfstate
 *.tfstate.*
+*.tfstate.backup
+
+# Crash log files
+crash.log
+crash.*.log
 
 # Logs
 *.log
@@ -14,11 +20,52 @@
 # Ignored vscode files
 .vscode/
 
+# Ignore JetBrains IDE files
+.idea/
+*.iml
+
 # Ignore any .tfvars files that are generated automatically for each Terraform run. Most
 # .tfvars files are managed as part of configuration and so should be included in
 # version control.
-#
+*.auto.tfvars
+*.auto.tfvars.json
 # example.tfvars
+
+# Ignore override files as they are usually used to override resources locally and so
+# are not checked in
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ignore CLI configuration files
+.terraformrc
+terraform.rc
 
 # Ignore aws credentials
 .aws/
+
+# Go test files
+tests/go.sum
+tests/*.test
+tests/*.out
+tests/vendor/
+
+# LocalStack data
+.localstack/
+localstack-data/
+
+# Lambda deployment packages
+*.zip
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Pre-commit
+.pre-commit-config.yaml.backup
