@@ -136,36 +136,42 @@ See the [`examples/`](./examples/) directory for complete working examples:
 
 ## Testing
 
-### Local Testing with LocalStack
+The module includes comprehensive unit and integration tests using Terratest and LocalStack.
+
+**Quick Start:**
 
 ```bash
+# Run unit tests (fast, no infrastructure required)
+make test-unit
+
+# Run integration tests with LocalStack
+make test-local
+```
+
+**For detailed testing documentation, see [TESTING.md](./TESTING.md)** which includes:
+- Complete setup instructions
+- Unit test details
+- Integration test details
+- LocalStack configuration
+- Troubleshooting guide
+- CI/CD information
+
+### Quick Testing Commands
+
+```bash
+# Unit tests only (2-5 minutes)
+make test-unit
+
 # Start LocalStack
 make localstack-start
 
-# Run Terraform
-export AWS_ENDPOINT_URL=http://localhost:4566
-terraform init
-terraform plan
-terraform apply
-
-# Cleanup
-make localstack-stop
-```
-
-### Run Integration Tests
-
-```bash
-# Install dependencies
-cd tests && go mod download
-
-# Run tests
+# Run integration tests
 make test
-```
 
-### Run All Tests
+# Stop LocalStack
+make localstack-stop
 
-```bash
-# Start LocalStack, run tests, and cleanup
+# All-in-one: start LocalStack, test, and cleanup
 make test-local
 ```
 
