@@ -1,6 +1,8 @@
 ## Providers definition
 
 terraform {
+  required_version = ">= 1.5.0"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -84,11 +86,9 @@ data "aws_acm_certificate" "wildcard_website" {
 # Creates bucket to store logs
 resource "aws_s3_bucket" "website_logs" {
   bucket = "${var.website-domain-main}-logs"
-  acl    = "log-delivery-write"
 
   # Comment the following line if you are uncomfortable with Terraform destroying the bucket even if this one is not empty
   force_destroy = true
-
 
   tags = merge(var.tags, {
     ManagedBy = "terraform"
@@ -98,25 +98,61 @@ resource "aws_s3_bucket" "website_logs" {
   lifecycle {
     ignore_changes = [tags["Changed"]]
   }
+}
+
+# Enable versioning for logs bucket
+resource "aws_s3_bucket_versioning" "website_logs" {
+  bucket = aws_s3_bucket.website_logs.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Enable encryption for logs bucket
+resource "aws_s3_bucket_server_side_encryption_configuration" "website_logs" {
+  bucket = aws_s3_bucket.website_logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# ACL for logs bucket
+resource "aws_s3_bucket_acl" "website_logs" {
+  bucket = aws_s3_bucket.website_logs.id
+  acl    = "log-delivery-write"
+
+  depends_on = [aws_s3_bucket_ownership_controls.website_logs]
+}
+
+# Ownership controls for logs bucket
+resource "aws_s3_bucket_ownership_controls" "website_logs" {
+  bucket = aws_s3_bucket.website_logs.id
+
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+# Public access block for logs bucket
+resource "aws_s3_bucket_public_access_block" "website_logs" {
+  bucket = aws_s3_bucket.website_logs.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 # Creates bucket to store the static website
 resource "aws_s3_bucket" "website_root" {
   bucket = "${var.website-domain-main}-root"
-  acl    = "public-read"
 
   # Comment the following line if you are uncomfortable with Terraform destroying the bucket even if not empty
   force_destroy = true
-
-  logging {
-    target_bucket = aws_s3_bucket.website_logs.bucket
-    target_prefix = "${var.website-domain-main}/"
-  }
-
-  website {
-    index_document = "index.html"
-    error_document = var.support-spa ? "" : "404.html"
-  }
 
   tags = merge(var.tags, {
     ManagedBy = "terraform"
@@ -128,20 +164,73 @@ resource "aws_s3_bucket" "website_root" {
   }
 }
 
+# Enable versioning for root bucket
+resource "aws_s3_bucket_versioning" "website_root" {
+  bucket = aws_s3_bucket.website_root.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Enable encryption for root bucket
+resource "aws_s3_bucket_server_side_encryption_configuration" "website_root" {
+  bucket = aws_s3_bucket.website_root.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# Logging configuration for root bucket
+resource "aws_s3_bucket_logging" "website_root" {
+  bucket = aws_s3_bucket.website_root.id
+
+  target_bucket = aws_s3_bucket.website_logs.id
+  target_prefix = "${var.website-domain-main}/"
+}
+
+# Website configuration for root bucket
+resource "aws_s3_bucket_website_configuration" "website_root" {
+  bucket = aws_s3_bucket.website_root.id
+
+  index_document {
+    suffix = "index.html"
+  }
+
+  dynamic "error_document" {
+    for_each = var.support-spa ? [] : [1]
+    content {
+      key = "404.html"
+    }
+  }
+}
+
+# Ownership controls for root bucket
+resource "aws_s3_bucket_ownership_controls" "website_root" {
+  bucket = aws_s3_bucket.website_root.id
+
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+# Public access block for root bucket (allowing public read via bucket policy)
+resource "aws_s3_bucket_public_access_block" "website_root" {
+  bucket = aws_s3_bucket.website_root.id
+
+  block_public_acls       = true
+  block_public_policy     = false
+  ignore_public_acls      = true
+  restrict_public_buckets = false
+}
+
 # Creates bucket for the website handling the redirection (if required), e.g. from https://www.example.com to https://example.com
 resource "aws_s3_bucket" "website_redirect" {
   bucket        = "${var.website-domain-main}-redirect"
-  acl           = "public-read"
   force_destroy = true
-
-  logging {
-    target_bucket = aws_s3_bucket.website_logs.bucket
-    target_prefix = "${var.website-domain-main}-redirect/"
-  }
-
-  website {
-    redirect_all_requests_to = "https://${var.website-domain-main}"
-  }
 
   tags = merge(var.tags, {
     ManagedBy = "terraform"
@@ -151,6 +240,63 @@ resource "aws_s3_bucket" "website_redirect" {
   lifecycle {
     ignore_changes = [tags["Changed"]]
   }
+}
+
+# Enable versioning for redirect bucket
+resource "aws_s3_bucket_versioning" "website_redirect" {
+  bucket = aws_s3_bucket.website_redirect.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Enable encryption for redirect bucket
+resource "aws_s3_bucket_server_side_encryption_configuration" "website_redirect" {
+  bucket = aws_s3_bucket.website_redirect.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# Logging configuration for redirect bucket
+resource "aws_s3_bucket_logging" "website_redirect" {
+  bucket = aws_s3_bucket.website_redirect.id
+
+  target_bucket = aws_s3_bucket.website_logs.id
+  target_prefix = "${var.website-domain-main}-redirect/"
+}
+
+# Website configuration for redirect bucket
+resource "aws_s3_bucket_website_configuration" "website_redirect" {
+  bucket = aws_s3_bucket.website_redirect.id
+
+  redirect_all_requests_to {
+    host_name = var.website-domain-main
+    protocol  = "https"
+  }
+}
+
+# Ownership controls for redirect bucket
+resource "aws_s3_bucket_ownership_controls" "website_redirect" {
+  bucket = aws_s3_bucket.website_redirect.id
+
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+# Public access block for redirect bucket
+resource "aws_s3_bucket_public_access_block" "website_redirect" {
+  bucket = aws_s3_bucket.website_redirect.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 ## CloudFront
@@ -163,14 +309,14 @@ resource "aws_cloudfront_distribution" "website_cdn_root" {
 
   origin {
     origin_id   = "origin-bucket-${aws_s3_bucket.website_root.id}"
-    domain_name = aws_s3_bucket.website_root.website_endpoint
+    domain_name = aws_s3_bucket_website_configuration.website_root.website_endpoint
 
     custom_origin_config {
       origin_protocol_policy = "http-only"
-      # The protocol policy that you want CloudFront to use when fetching objects from the origin server (a.k.a S3 in our situation). HTTP Only is the default setting when the origin is an Amazon S3 static website hosting endpoint, because Amazon S3 doesn’t support HTTPS connections for static website hosting endpoints.
+      # The protocol policy that you want CloudFront to use when fetching objects from the origin server (a.k.a S3 in our situation). HTTP Only is the default setting when the origin is an Amazon S3 static website hosting endpoint, because Amazon S3 doesn't support HTTPS connections for static website hosting endpoints.
       http_port            = 80
       https_port           = 443
-      origin_ssl_protocols = ["TLSv1.2", "TLSv1.1", "TLSv1"]
+      origin_ssl_protocols = ["TLSv1.2"]
     }
   }
 
@@ -289,13 +435,13 @@ resource "aws_cloudfront_distribution" "website_cdn_redirect" {
 
   origin {
     origin_id   = "origin-bucket-${aws_s3_bucket.website_redirect.id}"
-    domain_name = aws_s3_bucket.website_redirect.website_endpoint
+    domain_name = aws_s3_bucket_website_configuration.website_redirect.website_endpoint
 
     custom_origin_config {
       http_port              = 80
       https_port             = 443
       origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1", "TLSv1.1", "TLSv1.2"]
+      origin_ssl_protocols   = ["TLSv1.2"]
     }
   }
 

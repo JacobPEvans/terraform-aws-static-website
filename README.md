@@ -1,86 +1,339 @@
 # AWS Static Website Terraform Module
 
-Terraform module which provision required AWS resources to host a performant and secured static website.
+[![CI](https://github.com/JacobPEvans/terraform-aws-static-website/workflows/CI/badge.svg)](https://github.com/JacobPEvans/terraform-aws-static-website/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A modern, secure, and fully tested Terraform module for hosting high-performance static websites on AWS with CloudFront CDN, S3, ACM certificates, and Route53 DNS.
 
 ## Features
 
-This Terraform module creates the following AWS resources:
+This module provisions and configures:
 
-* **AWS Certificate Manager**: wildcard certificate for your domain.
-* **S3**
-  * Bucket #1: to store logs.
-  * Bucket #2: to store the content (`example.com`).
-  * Bucket #3: to redirect a different subdomain to the main domain (e.g., `www.example.com` redirected to `example.com`).
-* **CloudFront**
-  * Distribution #1: to frontend the website.
-  * Distribution #2: to frontend the subdomain that will be redirected to the main domain.
-* **Route53** record sets pointing to the two CloudFront distributions.
+### Core Infrastructure
+- **CloudFront** CDN distributions with HTTPS/TLS 1.2+
+- **S3** buckets with encryption, versioning, and logging
+- **ACM** wildcard SSL/TLS certificates with automatic DNS validation
+- **Route53** DNS records for seamless domain configuration
+
+### Security & Best Practices
+- ✅ **Encryption at rest** for all S3 buckets (AES256)
+- ✅ **S3 versioning** enabled on all buckets
+- ✅ **Public access blocks** configured appropriately
+- ✅ **Access logging** for both S3 and CloudFront
+- ✅ **TLS 1.2** minimum for all HTTPS connections
+- ✅ **Secure bucket policies** with least privilege access
+- ✅ **Lambda@Edge support** for custom security headers and behaviors
+
+### Developer Experience
+- 🧪 **LocalStack integration** for local testing
+- 🧪 **Terratest** integration tests with Go
+- 🔄 **Pre-commit hooks** for code quality
+- 🔄 **GitHub Actions** CI/CD pipeline
+- 📚 **Multiple examples** (basic, SPA, Lambda@Edge)
+- 📝 **Auto-generated documentation**
 
 ## Requirements
 
-* This module is meant for use with [Terraform](https://www.terraform.io/downloads.html) 0.12+. It has not been tested with previous versions of Terraform.
-* An AWS account and your credentials (`aws_access_key_id` and `aws_secret_access_key`) configured. There are several ways to do this (environment variables, shared credentials file, etc.); more information in the [AWS Provider](https://www.terraform.io/docs/providers/aws/index.html) documentation.
-* Your domain already configured as a hosted zone on Route53.
+| Name | Version |
+|------|---------|
+| [Terraform](https://www.terraform.io/downloads.html) | >= 1.5.0 |
+| [AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest) | ~> 5.0 |
 
-## Usage
+### Prerequisites
 
-```HCL
+1. **AWS Account** with appropriate credentials configured
+2. **Route53 Hosted Zone** for your domain
+3. **AWS CLI** (optional, for deployment)
+4. **Docker** (for LocalStack testing)
+
+## Quick Start
+
+### Basic Static Website
+
+```hcl
 provider "aws" {
-  region                  = "eu-west-3"
-  shared_credentials_file = "~/.aws/credentials"
+  region = "us-east-1"
 }
 
-module "aws_static_website" {
-  source = "cloudmaniac/static-website/aws"
+provider "aws" {
+  alias  = "us-east-1"
+  region = "us-east-1"
+}
 
-  # This is the domain as defined in Route53
-  domains-zone-root       = "cloudmaniac.net"
+module "static_website" {
+  source = "github.com/jacobpevans/terraform-aws-static-website"
 
-  # Domains used for CloudFront
-  website-domain-main     = "cloudmaniac.net"
-  website-domain-redirect = "www.cloudmaniac.net"
-  website-additional-domains = ["noredir1.cloudmaniac.net","noredir2.cloudmaniac.net"]
+  website-domain-main     = "example.com"
+  website-domain-redirect = "www.example.com"
+  domains-zone-root       = "example.com"
+
+  tags = {
+    Environment = "production"
+    ManagedBy   = "terraform"
+  }
+
+  providers = {
+    aws.us-east-1 = aws.us-east-1
+  }
 }
 ```
 
-Although AWS services are available in many locations, some of them require the `us-east-1` (N. Virginia) region to be configured:
+### Single Page Application (SPA)
 
-* To use an ACM certificate with Amazon CloudFront, you must request or import the certificate in the US East (N. Virginia) region. ACM certificates in this region associated with a CloudFront distribution are distributed to all the geographic locations configured for that distribution.
+```hcl
+module "spa_website" {
+  source = "github.com/jacobpevans/terraform-aws-static-website"
 
-For that reason, the module includes an aliased provider definition to create supplemental resources in the `us-east-1` region when required. Remaining resources from the module will inherit default (un-aliased) provider configurations from the parent.
+  website-domain-main = "app.example.com"
+  domains-zone-root   = "example.com"
+  support-spa         = true  # Enables 404 → index.html redirect
+
+  providers = {
+    aws.us-east-1 = aws.us-east-1
+  }
+}
+```
+
+## Important Notes
+
+### US-East-1 Requirement
+
+The module requires an aliased AWS provider for `us-east-1` because:
+- ACM certificates for CloudFront **must** be created in `us-east-1`
+- These certificates are automatically distributed to all edge locations
+
+This is an AWS requirement, not a module limitation.
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|:----:|:-------:|:--------:|
-| domains-zone-root | Root zone under which the domain should be registered in Route 53 | string | - | yes |
-| website-domain-main | Domain for the website (e.g., `example.com`) | string | - | yes |
-| website-domain-redirect | Alternate subdomain to redirect to the main website (e.g., `www.example.com`) | string | - | yes |
-| support-spa | Determine if website is SPA (Single-Page Application) to direct 404 response to index.html | bool | `false` | no |
-| website-additional-domains | Main website additional domains (e.g., `noredir.example.com`) that don't need redirection | list(string) | [] | no |
-| cloudfront_lambda_function_arn | ARN of optional AWS Lambda Function that can be associated with the CloudFront distribution to provide custom behaviour | string | - | no |
-| cloudfront_lambda_function_event_type | The type of event that triggers the above Lambda Function ([documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudfront_distribution#lambda_function_association)) | string | `origin-request` | no |
+|------|-------------|------|---------|----------|
+| `website-domain-main` | Main domain for the website (e.g., `example.com`) | `string` | - | yes |
+| `domains-zone-root` | Root domain for Route53 hosted zone | `string` | - | yes |
+| `website-domain-redirect` | Domain to redirect to main domain (e.g., `www.example.com`) | `string` | `""` | no |
+| `website-additional-domains` | Additional domain aliases (e.g., `["alt.example.com"]`) | `list(string)` | `[]` | no |
+| `support-spa` | Enable SPA mode (404 → index.html with 200 status) | `bool` | `false` | no |
+| `cloudfront_lambda_function_arn` | ARN of Lambda@Edge function for custom behavior | `string` | `null` | no |
+| `cloudfront_lambda_function_event_type` | Lambda@Edge trigger event (`viewer-request`, `viewer-response`, `origin-request`, `origin-response`) | `string` | `"origin-request"` | no |
+| `tags` | Tags to apply to all resources | `map(string)` | `{}` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| website_cdn_root_id | CloudFront Distribution ID |
+| `website_cdn_root_id` | CloudFront distribution ID for the main website |
+| `website_root_s3_bucket` | Name of the S3 bucket hosting website content |
+| `website_logs_s3_bucket` | Name of the S3 bucket storing access logs |
+| `website_redirect_s3_bucket` | Name of the S3 bucket handling redirects |
 
-## Author
+## Examples
 
-Module written by [@cloudmaniac](https://github.com/cloudmaniac).
+See the [`examples/`](./examples/) directory for complete working examples:
 
-Module Support: [terraform-aws-static-website](https://github.com/cloudmaniac/terraform-aws-static-website). Contributions and comments are welcomed.
+- **[Basic](./examples/basic/)** - Simple static website with redirect
+- **[SPA](./examples/spa/)** - Single Page Application configuration
+- **[Lambda@Edge](./examples/with-lambda/)** - Advanced setup with security headers
 
-## Additional Resources
+## Testing
 
-* Blog post describing the thought process behind this: [My Wordpress to Hugo Migration #2 - Hosting](https://cloudmaniac.net/wordpress-to-hugo-migration-2-hosting/)
+### Local Testing with LocalStack
 
-## Todo
+```bash
+# Start LocalStack
+make localstack-start
 
-* [ ] Use versioning on S3 buckets instead of invalidation
-* [ ] Secure S3 buckets
-* [ ] Optional enhanced version with Lambda@Edge configuration and S3 endpoint (REST endpoint) used as the origin
-* [ ] Variable names cleaning
-* [ ] Add more outputs
+# Run Terraform
+export AWS_ENDPOINT_URL=http://localhost:4566
+terraform init
+terraform plan
+terraform apply
+
+# Cleanup
+make localstack-stop
+```
+
+### Run Integration Tests
+
+```bash
+# Install dependencies
+cd tests && go mod download
+
+# Run tests
+make test
+```
+
+### Run All Tests
+
+```bash
+# Start LocalStack, run tests, and cleanup
+make test-local
+```
+
+## Development
+
+### Pre-commit Hooks
+
+Install pre-commit hooks for automatic code quality checks:
+
+```bash
+# Install pre-commit
+pip install pre-commit
+
+# Install hooks
+make pre-commit-install
+
+# Run manually
+make pre-commit-run
+```
+
+Hooks include:
+- Terraform formatting (`terraform fmt`)
+- Terraform validation (`terraform validate`)
+- TFLint static analysis
+- Trivy security scanning
+- terraform-docs generation
+- Trailing whitespace removal
+- Secrets detection (gitleaks)
+
+### Formatting and Validation
+
+```bash
+# Format code
+make fmt
+
+# Validate configuration
+make validate
+
+# Run linter
+make lint
+```
+
+## CI/CD
+
+This module includes a comprehensive GitHub Actions workflow that:
+
+- ✅ Validates Terraform code
+- ✅ Runs TFLint for best practices
+- ✅ Scans for security issues with Trivy
+- ✅ Runs pre-commit hooks
+- ✅ Executes integration tests with LocalStack
+- ✅ Generates and validates documentation
+
+See [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) for details.
+
+## Architecture
+
+```
+┌─────────────┐
+│   Route53   │ (DNS A Records)
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────────────────────┐
+│   CloudFront Distribution       │ (HTTPS/TLS 1.2+)
+│   - ACM Certificate             │
+│   - Lambda@Edge (optional)      │
+└──────┬──────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────┐
+│   S3 Bucket (Website)           │
+│   - Versioning enabled          │
+│   - Encryption at rest          │
+│   - Access logging              │
+└──────┬──────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────┐
+│   S3 Bucket (Logs)              │
+│   - Versioning enabled          │
+│   - Encryption at rest          │
+└─────────────────────────────────┘
+```
+
+## Security Best Practices
+
+This module implements AWS security best practices:
+
+1. **Encryption**: All S3 buckets use AES256 encryption at rest
+2. **Versioning**: Enabled on all buckets for data recovery
+3. **Access Control**: Public access blocks configured appropriately
+4. **Logging**: CloudFront and S3 access logs enabled
+5. **TLS**: Minimum TLS 1.2 for all HTTPS connections
+6. **Least Privilege**: Bucket policies grant minimal required access
+7. **Security Headers**: Example Lambda@Edge for HSTS, CSP, etc.
+
+## Migration from Older Versions
+
+This version includes breaking changes for AWS Provider 5.0 compatibility:
+
+- S3 bucket ACL, logging, and website configurations now use separate resources
+- Minimum Terraform version increased to 1.5.0
+- TLS 1.0 and 1.1 removed (TLS 1.2+ only)
+
+See examples for updated usage patterns.
+
+## Common Issues
+
+### ACM Certificate Validation Timeout
+
+If certificate validation hangs:
+1. Verify Route53 hosted zone exists and is correct
+2. Check DNS propagation with `dig` or `nslookup`
+3. Ensure AWS account has permissions for Route53 record creation
+
+### LocalStack Connection Issues
+
+If tests fail with connection errors:
+```bash
+# Check LocalStack health
+docker-compose ps
+
+# View logs
+make localstack-logs
+```
+
+## Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Run tests and pre-commit hooks
+4. Commit your changes (`git commit -m 'Add amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
+
+## Roadmap
+
+- [x] S3 bucket versioning
+- [x] S3 bucket encryption
+- [x] LocalStack testing infrastructure
+- [x] Terratest integration tests
+- [x] Pre-commit hooks
+- [x] GitHub Actions CI/CD
+- [ ] CloudFront Origin Access Control (OAC) instead of public buckets
+- [ ] Optional CloudWatch alarms and monitoring
+- [ ] Cost optimization recommendations
+- [ ] Multi-region failover support
+
+## License
+
+This module is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
+
+## Authors
+
+- Original module: [@cloudmaniac](https://github.com/cloudmaniac)
+- Modernization & testing: [@JacobPEvans](https://github.com/JacobPEvans)
+
+## Acknowledgments
+
+- Blog post describing the original thought process: [My Wordpress to Hugo Migration #2 - Hosting](https://cloudmaniac.net/wordpress-to-hugo-migration-2-hosting/)
+- AWS documentation for best practices
+- Terraform community for excellent modules and tools
+
+## Support
+
+For issues, questions, or contributions:
+- **Issues**: [GitHub Issues](https://github.com/JacobPEvans/terraform-aws-static-website/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/JacobPEvans/terraform-aws-static-website/discussions)
