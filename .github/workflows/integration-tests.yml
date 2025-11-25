@@ -1,0 +1,82 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  localstack-tests:
+    name: LocalStack Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+          terraform_wrapper: false
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum', '**/go.mod') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Start LocalStack
+        run: |
+          docker-compose -f docker-compose.ci.yml up -d
+          echo "Waiting for LocalStack to be ready..."
+
+          # Wait for LocalStack to be healthy
+          timeout 60 bash -c 'until docker-compose -f docker-compose.ci.yml ps | grep -q "healthy"; do echo "Waiting for LocalStack..."; sleep 2; done'
+
+          # Additional wait for services to initialize
+          sleep 10
+
+          echo "=== LocalStack Status ==="
+          docker-compose -f docker-compose.ci.yml ps
+
+          echo "=== LocalStack Health ==="
+          curl -s http://localhost:4566/_localstack/health | jq .
+
+          echo "=== LocalStack Logs ==="
+          docker-compose -f docker-compose.ci.yml logs --tail=50 localstack
+
+      - name: Download Go dependencies
+        working-directory: tests
+        run: go mod download
+
+      - name: Run Integration Tests
+        working-directory: tests
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          echo "Running LocalStack integration tests..."
+          go test -v -run "TestTerraformAwsStaticWebsiteBasic|TestTerraformAwsStaticWebsiteSPA" -timeout 30m
+
+      - name: Show LocalStack logs
+        if: always()
+        run: |
+          echo "=== LocalStack Container Status ==="
+          docker-compose -f docker-compose.ci.yml ps
+          echo "=== LocalStack Logs ==="
+          docker-compose -f docker-compose.ci.yml logs --tail=200 localstack
+
+      - name: Stop LocalStack
+        if: always()
+        run: docker-compose -f docker-compose.ci.yml down -v

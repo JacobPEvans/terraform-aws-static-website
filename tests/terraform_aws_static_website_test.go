@@ -299,7 +299,7 @@ func TestS3BucketResourcesIndividually(t *testing.T) {
 	// It doesn't need to run terraform, just validates the structure exists
 
 	t.Run("VerifyS3ResourceTypes", func(t *testing.T) {
-		// List of expected S3 resource types that should be in main.tf
+		// List of expected S3 resource types
 		expectedResources := []string{
 			"aws_s3_bucket",
 			"aws_s3_bucket_versioning",
@@ -312,17 +312,14 @@ func TestS3BucketResourcesIndividually(t *testing.T) {
 			"aws_s3_bucket_policy",
 		}
 
-		// Read main.tf
-		mainTfPath := "../main.tf"
-		content, err := os.ReadFile(mainTfPath)
-		require.NoError(t, err, "Should be able to read main.tf")
-
-		mainTfContent := string(content)
+		// Read all Terraform files (main.tf and modules)
+		allContent, err := ReadAllTerraformFiles("..")
+		require.NoError(t, err, "Should be able to read Terraform files")
 
 		// Verify each resource type exists
 		for _, resourceType := range expectedResources {
-			assert.Contains(t, mainTfContent, fmt.Sprintf("resource \"%s\"", resourceType),
-				fmt.Sprintf("main.tf should contain %s resource", resourceType))
+			assert.Contains(t, allContent, fmt.Sprintf("resource \"%s\"", resourceType),
+				fmt.Sprintf("Terraform files should contain %s resource", resourceType))
 		}
 	})
 
@@ -338,15 +335,12 @@ func TestCloudFrontResources(t *testing.T) {
 			"aws_acm_certificate_validation",
 		}
 
-		mainTfPath := "../main.tf"
-		content, err := os.ReadFile(mainTfPath)
-		require.NoError(t, err, "Should be able to read main.tf")
-
-		mainTfContent := string(content)
+		allContent, err := ReadAllTerraformFiles("..")
+		require.NoError(t, err, "Should be able to read Terraform files")
 
 		for _, resourceType := range expectedResources {
-			assert.Contains(t, mainTfContent, fmt.Sprintf("resource \"%s\"", resourceType),
-				fmt.Sprintf("main.tf should contain %s resource", resourceType))
+			assert.Contains(t, allContent, fmt.Sprintf("resource \"%s\"", resourceType),
+				fmt.Sprintf("Terraform files should contain %s resource", resourceType))
 		}
 	})
 
@@ -364,20 +358,17 @@ func TestRoute53Resources(t *testing.T) {
 			"data \"aws_route53_zone\"",
 		}
 
-		mainTfPath := "../main.tf"
-		content, err := os.ReadFile(mainTfPath)
-		require.NoError(t, err, "Should be able to read main.tf")
-
-		mainTfContent := string(content)
+		allContent, err := ReadAllTerraformFiles("..")
+		require.NoError(t, err, "Should be able to read Terraform files")
 
 		for _, resourceType := range expectedResources {
-			assert.Contains(t, mainTfContent, fmt.Sprintf("resource \"%s\"", resourceType),
-				fmt.Sprintf("main.tf should contain %s resource", resourceType))
+			assert.Contains(t, allContent, fmt.Sprintf("resource \"%s\"", resourceType),
+				fmt.Sprintf("Terraform files should contain %s resource", resourceType))
 		}
 
 		for _, dataSource := range expectedDataSources {
-			assert.Contains(t, mainTfContent, dataSource,
-				fmt.Sprintf("main.tf should contain %s data source", dataSource))
+			assert.Contains(t, allContent, dataSource,
+				fmt.Sprintf("Terraform files should contain %s data source", dataSource))
 		}
 	})
 
