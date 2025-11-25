@@ -10,6 +10,26 @@ jobs:
   localstack-tests:
     name: LocalStack Integration Tests
     runs-on: ubuntu-latest
+
+    services:
+      localstack:
+        image: localstack/localstack:3.0
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: s3,cloudfront,route53,acm,sts
+          DEBUG: 1
+          PERSISTENCE: 0
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        options: >-
+          --health-cmd "curl -f http://localhost:4566/_localstack/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --health-start-period 10s
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,25 +55,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Start LocalStack
+      - name: Verify LocalStack is ready
         run: |
-          docker-compose -f docker-compose.ci.yml up -d
-          echo "Waiting for LocalStack to be ready..."
-
-          # Wait for LocalStack to be healthy
-          timeout 60 bash -c 'until docker-compose -f docker-compose.ci.yml ps | grep -q "healthy"; do echo "Waiting for LocalStack..."; sleep 2; done'
-
-          # Additional wait for services to initialize
+          echo "Waiting for LocalStack to be fully ready..."
           sleep 10
 
-          echo "=== LocalStack Status ==="
-          docker-compose -f docker-compose.ci.yml ps
+          echo "=== LocalStack Health Check ==="
+          curl -s http://localhost:4566/_localstack/health | jq . || echo "Health check failed"
 
-          echo "=== LocalStack Health ==="
-          curl -s http://localhost:4566/_localstack/health | jq .
-
-          echo "=== LocalStack Logs ==="
-          docker-compose -f docker-compose.ci.yml logs --tail=50 localstack
+          echo "=== Creating Route53 hosted zone for testing ==="
+          aws --endpoint-url=http://localhost:4566 route53 create-hosted-zone \
+            --name "example.com" \
+            --caller-reference "$(date +%s)" \
+            --hosted-zone-config Comment="Test zone for static website module" || echo "Zone creation may have failed"
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
 
       - name: Download Go dependencies
         working-directory: tests
@@ -68,15 +86,3 @@ jobs:
         run: |
           echo "Running LocalStack integration tests..."
           go test -v -run "TestTerraformAwsStaticWebsiteBasic|TestTerraformAwsStaticWebsiteSPA" -timeout 30m
-
-      - name: Show LocalStack logs
-        if: always()
-        run: |
-          echo "=== LocalStack Container Status ==="
-          docker-compose -f docker-compose.ci.yml ps
-          echo "=== LocalStack Logs ==="
-          docker-compose -f docker-compose.ci.yml logs --tail=200 localstack
-
-      - name: Stop LocalStack
-        if: always()
-        run: docker-compose -f docker-compose.ci.yml down -v
