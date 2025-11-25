@@ -1,4 +1,5 @@
-## Providers definition
+# Terraform AWS Static Website Module
+# Main configuration that orchestrates all submodules
 
 terraform {
   required_version = ">= 1.5.0"
@@ -16,492 +17,78 @@ provider "aws" {
   region = "us-east-1"
 }
 
-## Route 53
-# Provides details about the zone
+# Data source for Route53 hosted zone
 data "aws_route53_zone" "main" {
   name         = var.domains-zone-root
   private_zone = false
 }
 
-## ACM (AWS Certificate Manager)
-# Creates the wildcard certificate *.<yourdomain.com>
-resource "aws_acm_certificate" "wildcard_website" {
-  provider                  = aws.us-east-1
-  domain_name               = var.domains-zone-root
-  subject_alternative_names = ["*.${var.domains-zone-root}"]
-  validation_method         = "DNS"
+# S3 Buckets Module
+module "s3_buckets" {
+  source = "./modules/s3-buckets"
 
-  tags = merge(var.tags, {
-    ManagedBy = "terraform"
-    Changed   = formatdate("YYYY-MM-DD hh:mm ZZZ", timestamp())
-  })
-
-  lifecycle {
-    ignore_changes = [tags["Changed"]]
-  }
-
-}
-
-# Validates the ACM wildcard by creating a Route53 record (as `validation_method` is set to `DNS` in the aws_acm_certificate resource)
-resource "aws_route53_record" "wildcard_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.wildcard_website.domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      record = dvo.resource_record_value
-      type   = dvo.resource_record_type
-    }
-  }
-  name            = each.value.name
-  type            = each.value.type
-  zone_id         = data.aws_route53_zone.main.zone_id
-  records         = [each.value.record]
-  allow_overwrite = true
-  ttl             = "60"
-}
-
-# Triggers the ACM wildcard certificate validation event
-resource "aws_acm_certificate_validation" "wildcard_cert" {
-  provider                = aws.us-east-1
-  certificate_arn         = aws_acm_certificate.wildcard_website.arn
-  validation_record_fqdns = [for k, v in aws_route53_record.wildcard_validation : v.fqdn]
-}
-
-
-# Get the ARN of the issued certificate
-data "aws_acm_certificate" "wildcard_website" {
-  provider = aws.us-east-1
-
-  depends_on = [
-    aws_acm_certificate.wildcard_website,
-    aws_route53_record.wildcard_validation,
-    aws_acm_certificate_validation.wildcard_cert,
-  ]
-
-  domain      = var.website-domain-main
-  statuses    = ["ISSUED"]
-  most_recent = true
-}
-
-## S3
-# Creates bucket to store logs
-resource "aws_s3_bucket" "website_logs" {
-  bucket = "${var.website-domain-main}-logs"
-
-  # Comment the following line if you are uncomfortable with Terraform destroying the bucket even if this one is not empty
+  domain_name   = var.website-domain-main
+  support_spa   = var.support-spa
   force_destroy = true
-
   tags = merge(var.tags, {
     ManagedBy = "terraform"
-    Changed   = formatdate("YYYY-MM-DD hh:mm ZZZ", timestamp())
+    Module    = "s3-buckets"
   })
+}
 
-  lifecycle {
-    ignore_changes = [tags["Changed"]]
+# ACM Certificate Module
+module "acm_certificate" {
+  source = "./modules/acm-certificate"
+
+  providers = {
+    aws.us-east-1 = aws.us-east-1
   }
-}
 
-# Enable versioning for logs bucket
-resource "aws_s3_bucket_versioning" "website_logs" {
-  bucket = aws_s3_bucket.website_logs.id
-
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-# Enable encryption for logs bucket
-resource "aws_s3_bucket_server_side_encryption_configuration" "website_logs" {
-  bucket = aws_s3_bucket.website_logs.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-# ACL for logs bucket
-resource "aws_s3_bucket_acl" "website_logs" {
-  bucket = aws_s3_bucket.website_logs.id
-  acl    = "log-delivery-write"
-
-  depends_on = [aws_s3_bucket_ownership_controls.website_logs]
-}
-
-# Ownership controls for logs bucket
-resource "aws_s3_bucket_ownership_controls" "website_logs" {
-  bucket = aws_s3_bucket.website_logs.id
-
-  rule {
-    object_ownership = "BucketOwnerPreferred"
-  }
-}
-
-# Public access block for logs bucket
-resource "aws_s3_bucket_public_access_block" "website_logs" {
-  bucket = aws_s3_bucket.website_logs.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-# Creates bucket to store the static website
-resource "aws_s3_bucket" "website_root" {
-  bucket = "${var.website-domain-main}-root"
-
-  # Comment the following line if you are uncomfortable with Terraform destroying the bucket even if not empty
-  force_destroy = true
-
+  domain_root     = var.domains-zone-root
+  route53_zone_id = data.aws_route53_zone.main.zone_id
   tags = merge(var.tags, {
     ManagedBy = "terraform"
-    Changed   = formatdate("YYYY-MM-DD hh:mm ZZZ", timestamp())
+    Module    = "acm-certificate"
   })
-
-  lifecycle {
-    ignore_changes = [tags["Changed"]]
-  }
 }
 
-# Enable versioning for root bucket
-resource "aws_s3_bucket_versioning" "website_root" {
-  bucket = aws_s3_bucket.website_root.id
+# CloudFront Distributions Module
+module "cloudfront" {
+  source = "./modules/cloudfront"
 
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-# Enable encryption for root bucket
-resource "aws_s3_bucket_server_side_encryption_configuration" "website_root" {
-  bucket = aws_s3_bucket.website_root.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-# Logging configuration for root bucket
-resource "aws_s3_bucket_logging" "website_root" {
-  bucket = aws_s3_bucket.website_root.id
-
-  target_bucket = aws_s3_bucket.website_logs.id
-  target_prefix = "${var.website-domain-main}/"
-}
-
-# Website configuration for root bucket
-resource "aws_s3_bucket_website_configuration" "website_root" {
-  bucket = aws_s3_bucket.website_root.id
-
-  index_document {
-    suffix = "index.html"
-  }
-
-  dynamic "error_document" {
-    for_each = var.support-spa ? [] : [1]
-    content {
-      key = "404.html"
-    }
-  }
-}
-
-# Ownership controls for root bucket
-resource "aws_s3_bucket_ownership_controls" "website_root" {
-  bucket = aws_s3_bucket.website_root.id
-
-  rule {
-    object_ownership = "BucketOwnerPreferred"
-  }
-}
-
-# Public access block for root bucket (allowing public read via bucket policy)
-resource "aws_s3_bucket_public_access_block" "website_root" {
-  bucket = aws_s3_bucket.website_root.id
-
-  block_public_acls       = true
-  block_public_policy     = false
-  ignore_public_acls      = true
-  restrict_public_buckets = false
-}
-
-# Creates bucket for the website handling the redirection (if required), e.g. from https://www.example.com to https://example.com
-resource "aws_s3_bucket" "website_redirect" {
-  bucket        = "${var.website-domain-main}-redirect"
-  force_destroy = true
-
+  domain_name                      = var.website-domain-main
+  aliases                          = concat([var.website-domain-main], var.website-additional-domains)
+  root_bucket_id                   = module.s3_buckets.root_bucket_id
+  root_bucket_website_endpoint     = module.s3_buckets.root_bucket_website_endpoint
+  redirect_bucket_id               = module.s3_buckets.redirect_bucket_id
+  redirect_bucket_website_endpoint = module.s3_buckets.redirect_bucket_website_endpoint
+  logs_bucket_domain_name          = module.s3_buckets.logs_bucket_domain_name
+  acm_certificate_arn              = module.acm_certificate.certificate_arn
+  support_spa                      = var.support-spa
+  lambda_function_arn              = var.cloudfront_lambda_function_arn
+  lambda_function_event_type       = var.cloudfront_lambda_function_event_type
+  redirect_enabled                 = var.website-domain-redirect != null && var.website-domain-redirect != ""
+  redirect_domain                  = var.website-domain-redirect != null ? var.website-domain-redirect : ""
   tags = merge(var.tags, {
     ManagedBy = "terraform"
-    Changed   = formatdate("YYYY-MM-DD hh:mm ZZZ", timestamp())
+    Module    = "cloudfront"
   })
 
-  lifecycle {
-    ignore_changes = [tags["Changed"]]
-  }
+  depends_on = [module.acm_certificate]
 }
 
-# Enable versioning for redirect bucket
-resource "aws_s3_bucket_versioning" "website_redirect" {
-  bucket = aws_s3_bucket.website_redirect.id
+# DNS Records Module
+module "dns" {
+  source = "./modules/dns"
 
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
+  route53_zone_id                      = data.aws_route53_zone.main.zone_id
+  domain_name                          = var.website-domain-main
+  redirect_domain                      = var.website-domain-redirect != null ? var.website-domain-redirect : ""
+  redirect_enabled                     = var.website-domain-redirect != null && var.website-domain-redirect != ""
+  root_distribution_domain_name        = module.cloudfront.root_distribution_domain_name
+  root_distribution_hosted_zone_id     = module.cloudfront.root_distribution_hosted_zone_id
+  redirect_distribution_domain_name    = module.cloudfront.redirect_distribution_domain_name
+  redirect_distribution_hosted_zone_id = module.cloudfront.redirect_distribution_hosted_zone_id
 
-# Enable encryption for redirect bucket
-resource "aws_s3_bucket_server_side_encryption_configuration" "website_redirect" {
-  bucket = aws_s3_bucket.website_redirect.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-# Logging configuration for redirect bucket
-resource "aws_s3_bucket_logging" "website_redirect" {
-  bucket = aws_s3_bucket.website_redirect.id
-
-  target_bucket = aws_s3_bucket.website_logs.id
-  target_prefix = "${var.website-domain-main}-redirect/"
-}
-
-# Website configuration for redirect bucket
-resource "aws_s3_bucket_website_configuration" "website_redirect" {
-  bucket = aws_s3_bucket.website_redirect.id
-
-  redirect_all_requests_to {
-    host_name = var.website-domain-main
-    protocol  = "https"
-  }
-}
-
-# Ownership controls for redirect bucket
-resource "aws_s3_bucket_ownership_controls" "website_redirect" {
-  bucket = aws_s3_bucket.website_redirect.id
-
-  rule {
-    object_ownership = "BucketOwnerPreferred"
-  }
-}
-
-# Public access block for redirect bucket
-resource "aws_s3_bucket_public_access_block" "website_redirect" {
-  bucket = aws_s3_bucket.website_redirect.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-## CloudFront
-# Creates the CloudFront distribution to serve the static website
-resource "aws_cloudfront_distribution" "website_cdn_root" {
-  enabled     = true
-  price_class = "PriceClass_All"
-  # Select the correct PriceClass depending on who the CDN is supposed to serve (https://docs.aws.amazon.com/AmazonCloudFront/ladev/DeveloperGuide/PriceClass.html)
-  aliases = concat([var.website-domain-main], var.website-additional-domains)
-
-  origin {
-    origin_id   = "origin-bucket-${aws_s3_bucket.website_root.id}"
-    domain_name = aws_s3_bucket_website_configuration.website_root.website_endpoint
-
-    custom_origin_config {
-      origin_protocol_policy = "http-only"
-      # The protocol policy that you want CloudFront to use when fetching objects from the origin server (a.k.a S3 in our situation). HTTP Only is the default setting when the origin is an Amazon S3 static website hosting endpoint, because Amazon S3 doesn't support HTTPS connections for static website hosting endpoints.
-      http_port            = 80
-      https_port           = 443
-      origin_ssl_protocols = ["TLSv1.2"]
-    }
-  }
-
-  default_root_object = "index.html"
-
-  logging_config {
-    bucket = aws_s3_bucket.website_logs.bucket_domain_name
-    prefix = "${var.website-domain-main}/"
-  }
-
-  default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD", "OPTIONS"]
-    target_origin_id = "origin-bucket-${aws_s3_bucket.website_root.id}"
-    min_ttl          = "0"
-    default_ttl      = "300"
-    max_ttl          = "1200"
-
-    viewer_protocol_policy = "redirect-to-https" # Redirects any HTTP request to HTTPS
-    compress               = true
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-
-    # An optional AWS Lambda Function for customising CloudFront behaviour.
-    dynamic "lambda_function_association" {
-      for_each = var.cloudfront_lambda_function_arn == null ? [] : [1]
-      content {
-        event_type = var.cloudfront_lambda_function_event_type
-        lambda_arn = var.cloudfront_lambda_function_arn
-      }
-    }
-  }
-
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
-  }
-
-  viewer_certificate {
-    acm_certificate_arn = data.aws_acm_certificate.wildcard_website.arn
-    ssl_support_method  = "sni-only"
-  }
-
-  custom_error_response {
-    error_caching_min_ttl = 300
-    error_code            = 404
-    response_page_path    = var.support-spa ? "/index.html" : "/404.html"
-    response_code         = var.support-spa ? 200 : 404
-  }
-
-  tags = merge(var.tags, {
-    ManagedBy = "terraform"
-    Changed   = formatdate("YYYY-MM-DD hh:mm ZZZ", timestamp())
-  })
-
-  lifecycle {
-    ignore_changes = [
-      tags["Changed"],
-      viewer_certificate,
-    ]
-  }
-}
-
-# Creates the DNS record to point on the main CloudFront distribution ID
-resource "aws_route53_record" "website_cdn_root_record" {
-  zone_id = data.aws_route53_zone.main.zone_id
-  name    = var.website-domain-main
-  type    = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.website_cdn_root.domain_name
-    zone_id                = aws_cloudfront_distribution.website_cdn_root.hosted_zone_id
-    evaluate_target_health = false
-  }
-}
-
-
-# Creates policy to allow public access to the S3 bucket
-resource "aws_s3_bucket_policy" "update_website_root_bucket_policy" {
-  bucket = aws_s3_bucket.website_root.id
-
-  policy = <<POLICY
-{
-  "Version": "2012-10-17",
-  "Id": "PolicyForWebsiteEndpointsPublicContent",
-  "Statement": [
-    {
-      "Sid": "PublicRead",
-      "Effect": "Allow",
-      "Principal": "*",
-      "Action": [
-        "s3:GetObject"
-      ],
-      "Resource": [
-        "${aws_s3_bucket.website_root.arn}/*",
-        "${aws_s3_bucket.website_root.arn}"
-      ]
-    }
-  ]
-}
-POLICY
-}
-
-# Creates the CloudFront distribution to serve the redirection website (if redirection is required)
-resource "aws_cloudfront_distribution" "website_cdn_redirect" {
-  enabled     = true
-  price_class = "PriceClass_All"
-  # Select the correct PriceClass depending on who the CDN is supposed to serve (https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/PriceClass.html)
-  aliases = [var.website-domain-redirect]
-
-  origin {
-    origin_id   = "origin-bucket-${aws_s3_bucket.website_redirect.id}"
-    domain_name = aws_s3_bucket_website_configuration.website_redirect.website_endpoint
-
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-    }
-  }
-
-  logging_config {
-    bucket = aws_s3_bucket.website_logs.bucket_domain_name
-    prefix = "${var.website-domain-main}-redirect/"
-  }
-
-  default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT", "DELETE"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "origin-bucket-${aws_s3_bucket.website_redirect.id}"
-    min_ttl          = "0"
-    default_ttl      = "300"
-    max_ttl          = "1200"
-
-    viewer_protocol_policy = "redirect-to-https" # Redirects any HTTP request to HTTPS
-    compress               = true
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-  }
-
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
-  }
-
-  viewer_certificate {
-    acm_certificate_arn = data.aws_acm_certificate.wildcard_website.arn
-    ssl_support_method  = "sni-only"
-  }
-
-  tags = merge(var.tags, {
-    ManagedBy = "terraform"
-    Changed   = formatdate("YYYY-MM-DD hh:mm ZZZ", timestamp())
-  })
-
-  lifecycle {
-    ignore_changes = [
-      tags["Changed"],
-      viewer_certificate,
-    ]
-  }
-}
-
-# Creates the DNS record to point on the CloudFront distribution ID that handles the redirection website
-resource "aws_route53_record" "website_cdn_redirect_record" {
-  zone_id = data.aws_route53_zone.main.zone_id
-  name    = var.website-domain-redirect
-  type    = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.website_cdn_redirect.domain_name
-    zone_id                = aws_cloudfront_distribution.website_cdn_redirect.hosted_zone_id
-    evaluate_target_health = false
-  }
+  depends_on = [module.cloudfront]
 }
