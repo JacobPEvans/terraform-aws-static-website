@@ -1,6 +1,10 @@
 # CloudFront Module
 # Creates CloudFront distributions for website and redirect
 
+terraform {
+  required_version = ">= 1.5.0"
+}
+
 resource "aws_cloudfront_distribution" "website_cdn_root" {
   enabled             = true
   price_class         = var.price_class

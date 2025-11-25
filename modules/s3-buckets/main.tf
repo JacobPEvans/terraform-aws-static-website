@@ -1,6 +1,10 @@
 # S3 Buckets Module
 # Creates all S3 buckets required for the static website
 
+terraform {
+  required_version = ">= 1.5.0"
+}
+
 ## Logs Bucket
 resource "aws_s3_bucket" "website_logs" {
   bucket        = "${var.domain_name}-logs"
