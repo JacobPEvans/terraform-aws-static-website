@@ -1,0 +1,20 @@
+# Trivy ignore file for acceptable security risks
+
+# AVD-AWS-0011: CloudFront WAF Protection
+# Reason: WAF is optional and adds significant monthly cost (~$10-50+/month)
+# Users should enable WAF based on their security requirements and budget
+# WAF can be added by users via AWS Console or separate Terraform configuration
+AVD-AWS-0011
+
+# AVD-AWS-0066: Lambda X-Ray Tracing
+# Reason: X-Ray is optional observability feature for the example Lambda function
+# Production deployments should enable X-Ray based on monitoring requirements
+AVD-AWS-0066
+
+# AVD-AWS-0087 and AVD-AWS-0093: S3 Public Access Block Configuration
+# Reason: Root bucket requires public read access for S3 website hosting feature
+# Access is controlled via bucket policy limiting to GetObject only
+# CloudFront sits in front for actual public access with HTTPS enforcement
+# Future enhancement: Migrate to CloudFront Origin Access Control (OAC)
+AVD-AWS-0087
+AVD-AWS-0093

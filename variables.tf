@@ -6,7 +6,7 @@ variable "website-domain-main" {
 variable "website-additional-domains" {
   description = "Main website additional domains (e.g., additional.cloudmaniac.net) that don't need redirection"
   type        = list(string)
-  default = []
+  default     = []
 }
 
 variable "website-domain-redirect" {
@@ -29,8 +29,8 @@ variable "tags" {
 
 variable "support-spa" {
   description = "Support SPA (Single-Page Application) website with redirect to index.html"
-  default = false
-  type = bool
+  default     = false
+  type        = bool
 }
 
 variable "cloudfront_lambda_function_arn" {
