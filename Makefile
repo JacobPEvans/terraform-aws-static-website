@@ -1,4 +1,4 @@
-.PHONY: help localstack-start localstack-stop localstack-restart test test-local fmt validate lint pre-commit-install pre-commit-run clean
+.PHONY: help localstack-start localstack-stop localstack-restart test test-unit test-local fmt validate lint pre-commit-install pre-commit-run clean
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -22,11 +22,15 @@ localstack-restart: localstack-stop localstack-start ## Restart LocalStack
 localstack-logs: ## Show LocalStack logs
 	docker-compose logs -f localstack
 
-test: ## Run tests with LocalStack
-	@echo "Running tests..."
+test: ## Run integration tests with LocalStack
+	@echo "Running integration tests..."
 	cd tests && go test -v -timeout 30m
 
-test-local: localstack-start test ## Start LocalStack and run tests
+test-unit: ## Run unit tests (no LocalStack required)
+	@echo "Running unit tests..."
+	cd tests && go test -v -run "TestS3BucketResourcesIndividually|TestCloudFrontResources|TestRoute53Resources|TestModuleValidation" -timeout 10m
+
+test-local: localstack-start test ## Start LocalStack and run integration tests
 
 fmt: ## Format Terraform code
 	terraform fmt -recursive
