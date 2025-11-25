@@ -31,8 +31,4 @@ module "static_website" {
     ManagedBy   = "terraform"
     Example     = "basic"
   }
-
-  providers = {
-    aws.us-east-1 = aws.us-east-1
-  }
 }

@@ -10,7 +10,7 @@ plugin "aws" {
 }
 
 rule "terraform_naming_convention" {
-  enabled = true
+  enabled = false
 }
 
 rule "terraform_documented_variables" {

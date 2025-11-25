@@ -1,6 +1,10 @@
 # DNS Module
 # Creates Route53 DNS records for CloudFront distributions
 
+terraform {
+  required_version = ">= 1.5.0"
+}
+
 resource "aws_route53_record" "website_cdn_root_record" {
   zone_id = var.route53_zone_id
   name    = var.domain_name

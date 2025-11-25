@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.0"
+    }
   }
 }
 
@@ -108,9 +112,5 @@ module "static_website_with_lambda" {
     Environment = "example"
     ManagedBy   = "terraform"
     Example     = "with-lambda"
-  }
-
-  providers = {
-    aws.us-east-1 = aws.us-east-1
   }
 }
