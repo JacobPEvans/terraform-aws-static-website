@@ -2,6 +2,68 @@
 
 Thank you for considering contributing to this project! We welcome contributions from the community.
 
+## ⚠️ CRITICAL: Local-First Testing Policy
+
+**ALL checks that run in GitHub Actions MUST be run locally BEFORE committing or pushing.**
+
+This policy exists to:
+- ✅ Reduce CI/CD usage and costs
+- ✅ Provide immediate feedback (seconds vs minutes)
+- ✅ Catch issues before they reach GitHub
+- ✅ Significantly decrease development time
+- ✅ Prevent wasted CI runs
+- ✅ Maintain repository quality
+
+### Mandatory Local Checks
+
+Before **EVERY** commit/push, you MUST run:
+
+```bash
+# Option 1: Install Git hooks (RECOMMENDED - automatic)
+make install-hooks
+
+# Option 2: Run checks manually before pushing
+make validate-local
+```
+
+### What Gets Checked Locally
+
+The `make validate-local` command runs:
+1. ✅ Terraform format check (`terraform fmt`)
+2. ✅ Terraform validation (`terraform validate`)
+3. ✅ TFLint static analysis
+4. ✅ Trivy security scanning
+5. ✅ Go unit tests (all resource validation tests)
+
+**These are the EXACT SAME checks that GitHub Actions runs.**
+
+### Consequences of Skipping Local Checks
+
+- ❌ Your PR may be closed
+- ❌ Wasted time waiting for CI to fail
+- ❌ Multiple push cycles to fix simple issues
+- ❌ Reviewer frustration
+- ❌ Increased CI costs
+
+### Git Hooks
+
+Installing hooks ensures checks run automatically:
+
+```bash
+# Install hooks once
+make install-hooks
+
+# Now checks run automatically on:
+# - Every commit (format, validate, lint, unit tests)
+# - Every push (all of the above + module validation)
+```
+
+To bypass hooks (NOT RECOMMENDED):
+```bash
+git commit --no-verify  # Skip pre-commit checks
+git push --no-verify     # Skip pre-push checks
+```
+
 ## Code of Conduct
 
 Be respectful, constructive, and professional in all interactions.
@@ -38,14 +100,22 @@ Be respectful, constructive, and professional in all interactions.
    # Install pre-commit
    pip install pre-commit
 
-   # Install pre-commit hooks
-   make pre-commit-install
+   # Install Git hooks (REQUIRED)
+   make install-hooks
 
    # Install Go (for tests)
    # Follow: https://golang.org/doc/install
 
    # Install Docker (for LocalStack)
    # Follow: https://docs.docker.com/get-docker/
+
+   # Install TFLint
+   brew install tflint  # macOS
+   # or: https://github.com/terraform-linters/tflint
+
+   # Install Trivy
+   brew install trivy  # macOS
+   # or: https://aquasecurity.github.io/trivy/latest/getting-started/installation/
    ```
 
 3. **Make your changes**
@@ -54,37 +124,23 @@ Be respectful, constructive, and professional in all interactions.
    - Update documentation as needed
    - Ensure code is properly formatted
 
-4. **Run quality checks**
+4. **Run quality checks BEFORE committing** (hooks do this automatically)
    ```bash
-   # Format code
-   make fmt
+   # Run ALL local checks (mirrors CI)
+   make validate-local
 
-   # Validate Terraform
-   make validate
-
-   # Run linter
-   make lint
-
-   # Run pre-commit hooks
-   make pre-commit-run
+   # Or run individual checks
+   make fmt         # Format code
+   make validate    # Validate Terraform
+   make lint        # Run linter
+   make test-unit   # Run unit tests
    ```
 
-5. **Run tests**
-   ```bash
-   # Start LocalStack
-   make localstack-start
-
-   # Run integration tests
-   cd tests && go test -v
-
-   # Or use the combined command
-   make test-local
-   ```
-
-6. **Commit your changes**
+5. **Commit your changes**
    ```bash
    git add .
    git commit -m "Add my awesome feature"
+   # Hooks will run automatically if installed
    ```
 
    Follow these commit message guidelines:
@@ -93,9 +149,16 @@ Be respectful, constructive, and professional in all interactions.
    - Limit first line to 72 characters
    - Reference issues and pull requests when relevant
 
+6. **Verify everything passes locally**
+   ```bash
+   # This is what CI will run
+   make validate-local
+   ```
+
 7. **Push to your fork**
    ```bash
    git push origin feature/my-awesome-feature
+   # Pre-push hooks will run if installed
    ```
 
 8. **Open a Pull Request**
@@ -103,16 +166,19 @@ Be respectful, constructive, and professional in all interactions.
    - Reference any related issues
    - Include test results if applicable
    - Update CHANGELOG.md under "Unreleased" section
+   - Confirm you ran `make validate-local` successfully
 
 ## Development Setup
 
 ### Prerequisites
 
-- Terraform >= 1.5.0
-- Go >= 1.21 (for tests)
-- Docker (for LocalStack)
-- Python >= 3.11 (for pre-commit)
-- AWS CLI (optional, for manual testing)
+- **Terraform** >= 1.5.0
+- **Go** >= 1.21 (for tests)
+- **Docker** (for LocalStack)
+- **Python** >= 3.11 (for pre-commit)
+- **TFLint** (for linting)
+- **Trivy** (for security scanning)
+- **AWS CLI** (optional, for manual testing)
 
 ### Project Structure
 
@@ -124,6 +190,9 @@ Be respectful, constructive, and professional in all interactions.
 │   ├── basic/
 │   ├── spa/
 │   └── with-lambda/
+├── scripts/              # Helper scripts
+│   ├── install-hooks.sh  # Git hooks installer
+│   └── validate-local.sh # Local CI validation
 ├── tests/                # Integration tests
 │   ├── localstack-init/  # LocalStack setup scripts
 │   └── *.go              # Terratest files
@@ -133,7 +202,8 @@ Be respectful, constructive, and professional in all interactions.
 ├── .pre-commit-config.yaml
 ├── .tflint.hcl
 ├── docker-compose.yml
-└── Makefile
+├── Makefile
+└── TESTING.md            # Comprehensive testing guide
 ```
 
 ### Testing Philosophy
@@ -141,7 +211,7 @@ Be respectful, constructive, and professional in all interactions.
 - All new features should include tests
 - Tests should use LocalStack for local execution
 - Integration tests use Terratest (Go)
-- Pre-commit hooks ensure code quality
+- **Local checks MUST pass before pushing**
 - CI/CD validates all changes
 
 ### Code Style
@@ -168,12 +238,67 @@ Be respectful, constructive, and professional in all interactions.
 3. Push tag: `git push origin v2.1.0`
 4. GitHub Actions will create the release automatically
 
+## Common Development Workflows
+
+### Before Starting Work
+
+```bash
+# 1. Install hooks (one time)
+make install-hooks
+
+# 2. Sync with upstream
+git pull origin main
+
+# 3. Create feature branch
+git checkout -b feature/my-feature
+```
+
+### During Development
+
+```bash
+# Format code
+make fmt
+
+# Validate locally
+make validate-local
+
+# Run unit tests
+make test-unit
+
+# Commit (hooks run automatically)
+git commit -m "feat: add my feature"
+```
+
+### Before Pushing
+
+```bash
+# CRITICAL: Run full validation
+make validate-local
+
+# If all passes, push
+git push origin feature/my-feature
+```
+
+### Running Tests
+
+```bash
+# Unit tests only (fast)
+make test-unit
+
+# Integration tests
+make test-local
+
+# All checks (CI mirror)
+make validate-local
+```
+
 ## Getting Help
 
 - Check [existing issues](https://github.com/JacobPEvans/terraform-aws-static-website/issues)
 - Start a [discussion](https://github.com/JacobPEvans/terraform-aws-static-website/discussions)
 - Review [examples](./examples/)
 - Read the [README](./README.md)
+- Read the [TESTING guide](./TESTING.md)
 
 ## License
 

@@ -5,6 +5,8 @@
 
 A modern, secure, and fully tested Terraform module for hosting high-performance static websites on AWS with CloudFront CDN, S3, ACM certificates, and Route53 DNS.
 
+> **👷 For Contributors:** Before making changes, read our [local-first testing policy](./CONTRIBUTING.md#️-critical-local-first-testing-policy). Run `make install-hooks` to automatically validate code before every commit/push. Run `make validate-local` to run all CI checks locally.
+
 ## Features
 
 This module provisions and configures:
