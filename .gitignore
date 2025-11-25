@@ -46,7 +46,6 @@ terraform.rc
 .aws/
 
 # Go test files
-tests/go.sum
 tests/*.test
 tests/*.out
 tests/vendor/
