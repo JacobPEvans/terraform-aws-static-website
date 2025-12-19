@@ -17,6 +17,7 @@ resource "aws_cloudfront_distribution" "website_cdn_root" {
   price_class         = var.price_class
   aliases             = var.aliases
   default_root_object = "index.html"
+  wait_for_deployment = false
 
   origin {
     origin_id   = "origin-bucket-${var.root_bucket_id}"
@@ -90,9 +91,10 @@ resource "aws_cloudfront_distribution" "website_cdn_root" {
 resource "aws_cloudfront_distribution" "website_cdn_redirect" {
   count = var.redirect_enabled ? 1 : 0
 
-  enabled     = true
-  price_class = var.price_class
-  aliases     = var.redirect_domain != "" ? [var.redirect_domain] : []
+  enabled             = true
+  price_class         = var.price_class
+  aliases             = var.redirect_domain != "" ? [var.redirect_domain] : []
+  wait_for_deployment = false
 
   origin {
     origin_id   = "origin-bucket-${var.redirect_bucket_id}"
