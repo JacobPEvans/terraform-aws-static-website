@@ -23,7 +23,7 @@ module "spa_website" {
 
   website-domain-main = var.website-domain-main
   domains-zone-root   = var.domains-zone-root
-  support-spa         = true
+  support-spa         = var.support-spa
 
   tags = {
     Environment = "example"
