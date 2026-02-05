@@ -16,6 +16,8 @@ repos:
       - id: terraform_validate
         args:
           - --hook-config=--retry-once-with-cleanup=true
+        # Exclude acm-certificate module - it requires provider alias from parent module
+        exclude: modules/acm-certificate/
       - id: terraform_tflint
         args:
           - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
