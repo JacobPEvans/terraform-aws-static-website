@@ -68,3 +68,6 @@ Thumbs.db
 
 # Pre-commit
 .pre-commit-config.yaml.backup
+
+# direnv
+.direnv/
