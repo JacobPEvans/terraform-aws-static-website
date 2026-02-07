@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, master ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   trivy:
     name: Trivy Security Scan
@@ -22,7 +26,7 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'HIGH,CRITICAL'
-          exit-code: '0'
+          exit-code: '1'
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3

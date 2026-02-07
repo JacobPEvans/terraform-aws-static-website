@@ -1,6 +1,6 @@
 module github.com/jacobpevans/terraform-aws-static-website/tests
 
-go 1.21
+go 1.23
 
 require (
 	github.com/aws/aws-sdk-go v1.49.13

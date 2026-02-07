@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, master ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   localstack-tests:
     name: LocalStack Integration Tests
@@ -18,6 +22,7 @@ jobs:
           - 4566:4566
         env:
           SERVICES: s3,cloudfront,route53,acm,sts
+          ACM_CERTIFICATE_INSTANT_VALIDATION: 1
           DEBUG: 1
           PERSISTENCE: 0
           AWS_DEFAULT_REGION: us-east-1
@@ -37,16 +42,16 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.23'
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "~1.6"
+          terraform_version: "~1.9"
           terraform_wrapper: false
 
       - name: Cache Go modules
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/go/pkg/mod
@@ -58,7 +63,6 @@ jobs:
       - name: Verify LocalStack is ready
         run: |
           echo "Waiting for LocalStack to be fully ready..."
-          sleep 10
 
           echo "=== LocalStack Health Check ==="
           curl -s http://localhost:4566/_localstack/health | jq . || echo "Health check failed"
@@ -85,4 +89,4 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
         run: |
           echo "Running LocalStack integration tests..."
-          go test -v -run "TestTerraformAwsStaticWebsiteBasic|TestTerraformAwsStaticWebsiteSPA" -timeout 30m
+          go test -v -run "TestTerraformAwsStaticWebsiteBasic|TestTerraformAwsStaticWebsiteSPA" -timeout 10m

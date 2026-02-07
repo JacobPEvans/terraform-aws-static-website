@@ -2,7 +2,6 @@ package test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -29,12 +28,10 @@ func createLocalStackSession(t *testing.T) *session.Session {
 
 // TestTerraformAwsStaticWebsiteBasic tests the basic static website configuration
 func TestTerraformAwsStaticWebsiteBasic(t *testing.T) {
-	t.Parallel()
-
 	// Set up environment for LocalStack
-	os.Setenv("AWS_ACCESS_KEY_ID", "test")
-	os.Setenv("AWS_SECRET_ACCESS_KEY", "test")
-	os.Setenv("AWS_DEFAULT_REGION", "us-east-1")
+	t.Setenv("AWS_ACCESS_KEY_ID", "test")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+	t.Setenv("AWS_DEFAULT_REGION", "us-east-1")
 
 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
 		TerraformDir: "../examples/basic",
@@ -80,11 +77,10 @@ func TestTerraformAwsStaticWebsiteBasic(t *testing.T) {
 
 // TestTerraformAwsStaticWebsiteSPA tests the SPA configuration
 func TestTerraformAwsStaticWebsiteSPA(t *testing.T) {
-	t.Parallel()
-
-	os.Setenv("AWS_ACCESS_KEY_ID", "test")
-	os.Setenv("AWS_SECRET_ACCESS_KEY", "test")
-	os.Setenv("AWS_DEFAULT_REGION", "us-east-1")
+	// Set up environment for LocalStack
+	t.Setenv("AWS_ACCESS_KEY_ID", "test")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+	t.Setenv("AWS_DEFAULT_REGION", "us-east-1")
 
 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
 		TerraformDir: "../examples/spa",
@@ -155,9 +151,10 @@ func testS3BucketsConfiguration(t *testing.T, sess *session.Session, rootBucket,
 		versioningOutput, err := s3Client.GetBucketVersioning(&s3.GetBucketVersioningInput{
 			Bucket: aws.String(rootBucket),
 		})
-		if err == nil {
-			assert.Equal(t, "Enabled", aws.StringValue(versioningOutput.Status), "Root bucket should have versioning enabled")
+		if err != nil {
+			t.Skipf("LocalStack does not support this feature: %v", err)
 		}
+		assert.Equal(t, "Enabled", aws.StringValue(versioningOutput.Status), "Root bucket should have versioning enabled")
 	})
 
 	// Test versioning on logs bucket
@@ -165,9 +162,10 @@ func testS3BucketsConfiguration(t *testing.T, sess *session.Session, rootBucket,
 		versioningOutput, err := s3Client.GetBucketVersioning(&s3.GetBucketVersioningInput{
 			Bucket: aws.String(logsBucket),
 		})
-		if err == nil {
-			assert.Equal(t, "Enabled", aws.StringValue(versioningOutput.Status), "Logs bucket should have versioning enabled")
+		if err != nil {
+			t.Skipf("LocalStack does not support this feature: %v", err)
 		}
+		assert.Equal(t, "Enabled", aws.StringValue(versioningOutput.Status), "Logs bucket should have versioning enabled")
 	})
 
 	// Test encryption on root bucket
@@ -175,11 +173,12 @@ func testS3BucketsConfiguration(t *testing.T, sess *session.Session, rootBucket,
 		encryptionOutput, err := s3Client.GetBucketEncryption(&s3.GetBucketEncryptionInput{
 			Bucket: aws.String(rootBucket),
 		})
-		if err == nil {
-			require.NotNil(t, encryptionOutput.ServerSideEncryptionConfiguration)
-			require.NotEmpty(t, encryptionOutput.ServerSideEncryptionConfiguration.Rules)
-			assert.Equal(t, "AES256", aws.StringValue(encryptionOutput.ServerSideEncryptionConfiguration.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm))
+		if err != nil {
+			t.Skipf("LocalStack does not support this feature: %v", err)
 		}
+		require.NotNil(t, encryptionOutput.ServerSideEncryptionConfiguration)
+		require.NotEmpty(t, encryptionOutput.ServerSideEncryptionConfiguration.Rules)
+		assert.Equal(t, "AES256", aws.StringValue(encryptionOutput.ServerSideEncryptionConfiguration.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm))
 	})
 
 	// Test website configuration on root bucket
@@ -187,9 +186,10 @@ func testS3BucketsConfiguration(t *testing.T, sess *session.Session, rootBucket,
 		websiteOutput, err := s3Client.GetBucketWebsite(&s3.GetBucketWebsiteInput{
 			Bucket: aws.String(rootBucket),
 		})
-		if err == nil {
-			assert.Equal(t, "index.html", aws.StringValue(websiteOutput.IndexDocument.Suffix))
+		if err != nil {
+			t.Skipf("LocalStack does not support this feature: %v", err)
 		}
+		assert.Equal(t, "index.html", aws.StringValue(websiteOutput.IndexDocument.Suffix))
 	})
 
 	// Test logging configuration on root bucket
@@ -197,7 +197,10 @@ func testS3BucketsConfiguration(t *testing.T, sess *session.Session, rootBucket,
 		loggingOutput, err := s3Client.GetBucketLogging(&s3.GetBucketLoggingInput{
 			Bucket: aws.String(rootBucket),
 		})
-		if err == nil && loggingOutput.LoggingEnabled != nil {
+		if err != nil {
+			t.Skipf("LocalStack does not support this feature: %v", err)
+		}
+		if loggingOutput.LoggingEnabled != nil {
 			assert.Contains(t, aws.StringValue(loggingOutput.LoggingEnabled.TargetBucket), logsBucket)
 		}
 	})
@@ -207,7 +210,10 @@ func testS3BucketsConfiguration(t *testing.T, sess *session.Session, rootBucket,
 		publicAccessOutput, err := s3Client.GetPublicAccessBlock(&s3.GetPublicAccessBlockInput{
 			Bucket: aws.String(logsBucket),
 		})
-		if err == nil && publicAccessOutput.PublicAccessBlockConfiguration != nil {
+		if err != nil {
+			t.Skipf("LocalStack does not support this feature: %v", err)
+		}
+		if publicAccessOutput.PublicAccessBlockConfiguration != nil {
 			assert.True(t, aws.BoolValue(publicAccessOutput.PublicAccessBlockConfiguration.BlockPublicAcls))
 			assert.True(t, aws.BoolValue(publicAccessOutput.PublicAccessBlockConfiguration.BlockPublicPolicy))
 		}
@@ -222,17 +228,21 @@ func testCloudFrontDistribution(t *testing.T, sess *session.Session, distributio
 		distOutput, err := cfClient.GetDistribution(&cloudfront.GetDistributionInput{
 			Id: aws.String(distributionId),
 		})
-		if err == nil {
-			require.NotNil(t, distOutput.Distribution)
-			assert.True(t, aws.BoolValue(distOutput.Distribution.DistributionConfig.Enabled), "CloudFront distribution should be enabled")
+		if err != nil {
+			t.Skipf("LocalStack does not support this feature: %v", err)
 		}
+		require.NotNil(t, distOutput.Distribution)
+		assert.True(t, aws.BoolValue(distOutput.Distribution.DistributionConfig.Enabled), "CloudFront distribution should be enabled")
 	})
 
 	t.Run("CloudFrontDistributionHTTPSConfig", func(t *testing.T) {
 		distOutput, err := cfClient.GetDistribution(&cloudfront.GetDistributionInput{
 			Id: aws.String(distributionId),
 		})
-		if err == nil && distOutput.Distribution != nil && distOutput.Distribution.DistributionConfig.DefaultCacheBehavior != nil {
+		if err != nil {
+			t.Skipf("LocalStack does not support this feature: %v", err)
+		}
+		if distOutput.Distribution != nil && distOutput.Distribution.DistributionConfig.DefaultCacheBehavior != nil {
 			assert.Equal(t, "redirect-to-https", aws.StringValue(distOutput.Distribution.DistributionConfig.DefaultCacheBehavior.ViewerProtocolPolicy))
 		}
 	})
@@ -241,7 +251,10 @@ func testCloudFrontDistribution(t *testing.T, sess *session.Session, distributio
 		distOutput, err := cfClient.GetDistribution(&cloudfront.GetDistributionInput{
 			Id: aws.String(distributionId),
 		})
-		if err == nil && distOutput.Distribution != nil && distOutput.Distribution.DistributionConfig.DefaultCacheBehavior != nil {
+		if err != nil {
+			t.Skipf("LocalStack does not support this feature: %v", err)
+		}
+		if distOutput.Distribution != nil && distOutput.Distribution.DistributionConfig.DefaultCacheBehavior != nil {
 			assert.True(t, aws.BoolValue(distOutput.Distribution.DistributionConfig.DefaultCacheBehavior.Compress), "Compression should be enabled")
 		}
 	})
