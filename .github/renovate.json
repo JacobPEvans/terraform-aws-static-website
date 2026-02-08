@@ -1,0 +1,106 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":separateMajorReleases",
+    "group:allNonMajor"
+  ],
+  "labels": ["dependencies"],
+  "assignees": ["@JacobPEvans"],
+  "timezone": "America/Los_Angeles",
+  "schedule": ["after 9pm and before 6am every weekday", "every weekend"],
+  "prConcurrentLimit": 3,
+  "prCreation": "immediate",
+  "automerge": false,
+  "rebaseWhen": "behind-base-branch",
+  "packageRules": [
+    {
+      "description": "GitHub Actions - Auto-merge patch/minor updates",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash"
+    },
+    {
+      "description": "Pre-commit hooks - Auto-merge patch/minor updates",
+      "matchManagers": ["pre-commit"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash"
+    },
+    {
+      "description": "Go dependencies - Auto-merge patch updates only",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash"
+    },
+    {
+      "description": "Terraform providers - Group all provider updates",
+      "matchManagers": ["terraform"],
+      "matchDatasources": ["terraform-provider"],
+      "groupName": "terraform-providers",
+      "automerge": false
+    },
+    {
+      "description": "Major updates - Require manual review",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "major-update"]
+    },
+    {
+      "description": "LocalStack Docker image - Track latest",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["localstack/localstack"],
+      "automerge": false,
+      "labels": ["dependencies", "docker"]
+    },
+    {
+      "description": "Terraform version constraints in workflows",
+      "matchFiles": [".github/workflows/*.yml"],
+      "matchStrings": ["terraform_version: [\"']?(?<currentValue>.*?)[\"']?\\s"],
+      "depNameTemplate": "hashicorp/terraform",
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "description": "Go version in workflows",
+      "matchFiles": [".github/workflows/*.yml"],
+      "matchStrings": ["go-version: [\"']?(?<currentValue>.*?)[\"']?\\s"],
+      "depNameTemplate": "golang/go",
+      "datasourceTemplate": "github-tags"
+    }
+  ],
+  "terraform": {
+    "enabled": true
+  },
+  "dockerfile": {
+    "enabled": true
+  },
+  "docker": {
+    "enabled": true,
+    "pinDigests": false
+  },
+  "gomod": {
+    "enabled": true
+  },
+  "pre-commit": {
+    "enabled": true
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"],
+    "automerge": false
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"],
+    "automerge": true,
+    "automergeType": "pr",
+    "automergeStrategy": "squash"
+  }
+}
