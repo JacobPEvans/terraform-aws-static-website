@@ -26,25 +26,88 @@ func createLocalStackSession(t *testing.T) *session.Session {
 	return sess
 }
 
-// TestTerraformAwsStaticWebsiteBasic tests the basic static website configuration
-func TestTerraformAwsStaticWebsiteBasic(t *testing.T) {
-	// Set up environment for LocalStack
+// localStackTerraformOptions creates terraform options with LocalStack configuration
+func localStackTerraformOptions(t *testing.T, dir string, vars map[string]interface{}) *terraform.Options {
 	t.Setenv("AWS_ACCESS_KEY_ID", "test")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
 	t.Setenv("AWS_DEFAULT_REGION", "us-east-1")
 
-	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
-		TerraformDir: "../examples/basic",
-		Vars: map[string]interface{}{
-			"website-domain-main":     "test.example.com",
-			"website-domain-redirect": "www.test.example.com",
-			"domains-zone-root":       "example.com",
-			"support-spa":             false,
-		},
+	return terraform.WithDefaultRetryableErrors(t, &terraform.Options{
+		TerraformDir: dir,
+		Vars:         vars,
 		EnvVars: map[string]string{
 			"AWS_ENDPOINT_URL": "http://localhost:4566",
 		},
 		NoColor: true,
+	})
+}
+
+
+// TestTerraformAwsStaticWebsiteBasicPlan validates the basic configuration produces a valid plan
+func TestTerraformAwsStaticWebsiteBasicPlan(t *testing.T) {
+	opts := localStackTerraformOptions(t, "../examples/basic", map[string]interface{}{
+		"website-domain-main":     "test.example.com",
+		"website-domain-redirect": "www.test.example.com",
+		"domains-zone-root":       "example.com",
+		"support-spa":             false,
+	})
+	opts.PlanFilePath = t.TempDir() + "/plan.out"
+
+	plan := terraform.InitAndPlanAndShowWithStruct(t, opts)
+
+	// Verify plan has expected number of resources
+	assert.GreaterOrEqual(t, len(plan.ResourcePlannedValuesMap), 20,
+		"Plan should create at least 20 resources")
+
+	// Verify key resources are in the plan
+	terraform.AssertPlannedValuesMapKeyExists(t, plan, "module.static_website.module.s3_buckets.aws_s3_bucket.website_root")
+	terraform.AssertPlannedValuesMapKeyExists(t, plan, "module.static_website.module.s3_buckets.aws_s3_bucket.website_logs")
+	terraform.AssertPlannedValuesMapKeyExists(t, plan, "module.static_website.module.s3_buckets.aws_s3_bucket.website_redirect")
+	terraform.AssertPlannedValuesMapKeyExists(t, plan, "module.static_website.module.cloudfront.aws_cloudfront_distribution.website_cdn_root")
+	terraform.AssertPlannedValuesMapKeyExists(t, plan, "module.static_website.module.acm_certificate.aws_acm_certificate.wildcard_website")
+
+	// Verify root bucket configuration
+	root := plan.ResourcePlannedValuesMap["module.static_website.module.s3_buckets.aws_s3_bucket.website_root"]
+	require.NotNil(t, root, "Root bucket should exist in plan")
+	assert.Equal(t, "test.example.com-root", root.AttributeValues["bucket"])
+
+	fmt.Println("✅ Basic website plan tests passed!")
+}
+
+// TestTerraformAwsStaticWebsiteSPAPlan validates the SPA configuration produces a valid plan
+func TestTerraformAwsStaticWebsiteSPAPlan(t *testing.T) {
+	opts := localStackTerraformOptions(t, "../examples/spa", map[string]interface{}{
+		"website-domain-main": "spa.example.com",
+		"domains-zone-root":   "example.com",
+		"support-spa":         true,
+	})
+	opts.PlanFilePath = t.TempDir() + "/plan.out"
+
+	plan := terraform.InitAndPlanAndShowWithStruct(t, opts)
+
+	// Verify plan has expected resources
+	assert.GreaterOrEqual(t, len(plan.ResourcePlannedValuesMap), 15,
+		"SPA plan should create at least 15 resources")
+
+	// Verify key SPA resources
+	terraform.AssertPlannedValuesMapKeyExists(t, plan, "module.static_website.module.s3_buckets.aws_s3_bucket.website_root")
+	terraform.AssertPlannedValuesMapKeyExists(t, plan, "module.static_website.module.cloudfront.aws_cloudfront_distribution.website_cdn_root")
+
+	// Verify root bucket configuration
+	root := plan.ResourcePlannedValuesMap["module.static_website.module.s3_buckets.aws_s3_bucket.website_root"]
+	require.NotNil(t, root, "Root bucket should exist in plan")
+	assert.Equal(t, "spa.example.com-root", root.AttributeValues["bucket"])
+
+	fmt.Println("✅ SPA website plan tests passed!")
+}
+
+// TestTerraformAwsStaticWebsiteBasic tests the basic static website configuration
+func TestTerraformAwsStaticWebsiteBasic(t *testing.T) {
+	terraformOptions := localStackTerraformOptions(t, "../examples/basic", map[string]interface{}{
+		"website-domain-main":     "test.example.com",
+		"website-domain-redirect": "www.test.example.com",
+		"domains-zone-root":       "example.com",
+		"support-spa":             false,
 	})
 
 	defer terraform.Destroy(t, terraformOptions)
@@ -77,22 +140,10 @@ func TestTerraformAwsStaticWebsiteBasic(t *testing.T) {
 
 // TestTerraformAwsStaticWebsiteSPA tests the SPA configuration
 func TestTerraformAwsStaticWebsiteSPA(t *testing.T) {
-	// Set up environment for LocalStack
-	t.Setenv("AWS_ACCESS_KEY_ID", "test")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
-	t.Setenv("AWS_DEFAULT_REGION", "us-east-1")
-
-	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
-		TerraformDir: "../examples/spa",
-		Vars: map[string]interface{}{
-			"website-domain-main": "spa.example.com",
-			"domains-zone-root":   "example.com",
-			"support-spa":         true,
-		},
-		EnvVars: map[string]string{
-			"AWS_ENDPOINT_URL": "http://localhost:4566",
-		},
-		NoColor: true,
+	terraformOptions := localStackTerraformOptions(t, "../examples/spa", map[string]interface{}{
+		"website-domain-main": "spa.example.com",
+		"domains-zone-root":   "example.com",
+		"support-spa":         true,
 	})
 
 	defer terraform.Destroy(t, terraformOptions)
