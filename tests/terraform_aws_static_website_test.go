@@ -90,11 +90,11 @@ func TestTerraformAwsStaticWebsiteSPAPlan(t *testing.T) {
 		"SPA plan should create at least 15 resources")
 
 	// Verify key SPA resources
-	terraform.AssertPlannedValuesMapKeyExists(t, plan, "module.static_website.module.s3_buckets.aws_s3_bucket.website_root")
-	terraform.AssertPlannedValuesMapKeyExists(t, plan, "module.static_website.module.cloudfront.aws_cloudfront_distribution.website_cdn_root")
+	terraform.AssertPlannedValuesMapKeyExists(t, plan, "module.spa_website.module.s3_buckets.aws_s3_bucket.website_root")
+	terraform.AssertPlannedValuesMapKeyExists(t, plan, "module.spa_website.module.cloudfront.aws_cloudfront_distribution.website_cdn_root")
 
 	// Verify root bucket configuration
-	root := plan.ResourcePlannedValuesMap["module.static_website.module.s3_buckets.aws_s3_bucket.website_root"]
+	root := plan.ResourcePlannedValuesMap["module.spa_website.module.s3_buckets.aws_s3_bucket.website_root"]
 	require.NotNil(t, root, "Root bucket should exist in plan")
 	assert.Equal(t, "spa.example.com-root", root.AttributeValues["bucket"])
 

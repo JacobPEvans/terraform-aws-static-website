@@ -1,0 +1,2 @@
+# Copy this file to .envrc and adjust the path to your nix-config location
+use flake ~/git/nix-config/main/shells/terraform
