@@ -21,7 +21,7 @@ jobs:
         ports:
           - 4566:4566
         env:
-          SERVICES: s3,route53,acm
+          SERVICES: s3,route53,acm,sts
           ACM_CERTIFICATE_INSTANT_VALIDATION: 1
           PERSISTENCE: 0
           AWS_DEFAULT_REGION: us-east-1
