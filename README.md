@@ -1,7 +1,7 @@
 # AWS Static Website Terraform Module
 
 [![CI](https://github.com/JacobPEvans/terraform-aws-static-website/workflows/CI/badge.svg)](https://github.com/JacobPEvans/terraform-aws-static-website/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 A modern, secure, and fully tested Terraform module for hosting high-performance static websites on AWS with CloudFront CDN, S3, ACM certificates, and Route53 DNS.
 
@@ -327,7 +327,7 @@ Contributions are welcome! Please:
 
 ## License
 
-This module is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
+This module is licensed under the Apache License, Version 2.0. See [LICENSE](./LICENSE) for details.
 
 ## Authors
 
