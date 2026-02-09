@@ -10,6 +10,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read         # Checkout code
+  security-events: write # Upload SARIF to GitHub Security
+
 jobs:
   trivy:
     name: Trivy Security Scan
