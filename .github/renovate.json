@@ -5,7 +5,8 @@
     ":dependencyDashboard",
     ":semanticCommits",
     ":separateMajorReleases",
-    "group:allNonMajor"
+    "group:allNonMajor",
+    "local>JacobPEvans/.github:renovate-presets"
   ],
   "labels": ["dependencies"],
   "assignees": ["@JacobPEvans"],
@@ -16,22 +17,6 @@
   "automerge": false,
   "rebaseWhen": "behind-base-branch",
   "packageRules": [
-    {
-      "description": "GitHub Actions - Auto-merge patch/minor updates",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch"],
-      "automerge": true,
-      "automergeType": "pr",
-      "automergeStrategy": "squash"
-    },
-    {
-      "description": "Pre-commit hooks - Auto-merge patch/minor updates",
-      "matchManagers": ["pre-commit"],
-      "matchUpdateTypes": ["minor", "patch"],
-      "automerge": true,
-      "automergeType": "pr",
-      "automergeStrategy": "squash"
-    },
     {
       "description": "Go dependencies - Auto-merge patch updates only",
       "matchManagers": ["gomod"],
@@ -46,12 +31,6 @@
       "matchDatasources": ["terraform-provider"],
       "groupName": "terraform-providers",
       "automerge": false
-    },
-    {
-      "description": "Major updates - Require manual review",
-      "matchUpdateTypes": ["major"],
-      "automerge": false,
-      "labels": ["dependencies", "major-update"]
     },
     {
       "description": "LocalStack Docker image - Track latest",
