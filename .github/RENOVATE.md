@@ -58,13 +58,18 @@ automatically keep all dependencies up to date.
 
 Renovate will automatically merge the following updates after CI passes:
 
-- ✅ **GitHub Actions**: Patch and minor updates
-- ✅ **Pre-commit hooks**: Patch and minor updates
-- ✅ **Go dependencies**: Patch updates only
-- ✅ **Lock files**: Weekly lock file maintenance
-- ❌ **Major updates**: Always require manual review
-- ❌ **Terraform providers**: Always require manual review
-- ❌ **Docker images**: Always require manual review
+- ✅ **GitHub Actions**: Patch and minor updates (trusted orgs — via shared preset)
+- ✅ **Pre-commit hooks**: Patch and minor updates (via shared preset)
+- ✅ **Go dependencies**: Patch updates only (defined locally in `renovate.json`)
+- ✅ **Lock files**: Weekly lock file maintenance (defined locally in `renovate.json`)
+- ❌ **Major updates**: Always require manual review (via shared preset)
+- ❌ **Terraform providers**: Always require manual review (defined locally in `renovate.json`)
+- ❌ **Docker images**: Always require manual review (defined locally in `renovate.json`)
+
+The GitHub Actions and Pre-commit automerge rules, and the major-updates safety rail, are
+provided by the shared preset at
+[`JacobPEvans/.github:renovate-presets.json`](https://github.com/JacobPEvans/.github/blob/main/renovate-presets.json).
+To modify those rules, update the preset there.
 
 ## Schedule
 
