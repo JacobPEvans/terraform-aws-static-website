@@ -4,6 +4,7 @@
     ".": {
       "release-type": "simple",
       "version-file": "VERSION",
+      "$comment": "versioning: always-bump-minor is REQUIRED org-wide policy — prevents release-please from ever computing a major version bump. Major bumps are human-initiated only via .release-please-manifest.json. Do NOT remove.",
       "versioning": "always-bump-minor",
       "include-v-in-tag": false,
       "changelog-sections": [
