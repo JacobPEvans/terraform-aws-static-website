@@ -19,7 +19,7 @@ automatically keep all dependencies up to date.
 - actions/cache@v4
 - hashicorp/setup-terraform@v3
 - terraform-linters/setup-tflint@v4
-- aquasecurity/trivy-action@master
+- aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
 - github/codeql-action/upload-sarif@v3
 - softprops/action-gh-release@v2
 
