@@ -71,4 +71,4 @@ Thumbs.db
 
 # direnv
 .direnv/
-.envrc
+.envrc.local
