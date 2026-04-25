@@ -18,7 +18,7 @@ permissions:
 jobs:
   plan-tests:
     name: Terraform Plan Tests
-    runs-on: ubuntu-latest
+    runs-on: "runs-on=${{ github.run_id }}/runner=4cpu-linux-x64"
 
     services:
       localstack:
@@ -112,7 +112,7 @@ jobs:
   full-tests:
     name: Full LocalStack Integration Tests
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: "runs-on=${{ github.run_id }}/runner=4cpu-linux-x64"
 
     services:
       localstack:
