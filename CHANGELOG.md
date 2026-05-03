@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0](https://github.com/JacobPEvans/terraform-aws-static-website/compare/v2.3.0...v2.4.0) (2026-05-03)
+
+
+### Bug Fixes
+
+* **ci:** remove deprecated GH_ACTION_JACOBPEVANS_APP_ID from workflow secrets ([#23](https://github.com/JacobPEvans/terraform-aws-static-website/issues/23)) ([27febf2](https://github.com/JacobPEvans/terraform-aws-static-website/commit/27febf2fcf9a646fc56e9ce954b9bfffd449b2b4))
+
 ## [2.3.0](https://github.com/JacobPEvans/terraform-aws-static-website/compare/v2.2.0...v2.3.0) (2026-04-02)
 
 
