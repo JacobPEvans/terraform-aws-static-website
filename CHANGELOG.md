@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0](https://github.com/JacobPEvans/terraform-aws-static-website/compare/v2.5.0...v2.6.0) (2026-05-20)
+
+
+### Bug Fixes
+
+* **security:** add OSV scan + bump go 1.25.10 + ulikunitz/xz 0.5.15 ([#28](https://github.com/JacobPEvans/terraform-aws-static-website/issues/28)) ([3c6981f](https://github.com/JacobPEvans/terraform-aws-static-website/commit/3c6981f246a4bfadfeef920691b37035059eedd7))
+
 ## [2.5.0](https://github.com/JacobPEvans/terraform-aws-static-website/compare/v2.4.0...v2.5.0) (2026-05-12)
 
 
