@@ -1,0 +1,37 @@
+# OSV Scanner config — local override for JacobPEvans/terraform-aws-static-website.
+#
+# The reusable workflow at JacobPEvans/.github/.github/workflows/_osv-scan.yml
+# auto-applies this file when present (otherwise it falls back to the org-wide
+# default at JacobPEvans/.github/osv-scanner.toml).
+
+# ============================================================================
+# aws-sdk-go S3 Crypto SDK v1 — won't-fix-in-v1 advisories
+# ============================================================================
+# Both findings affect a specific S3 client-side encryption feature of the
+# AWS Go v1 SDK. AWS's fix is to use the v2 SDK or the `aws-encryption-sdk-go`
+# package; no patch will land in v1. The dep is pulled in transitively by
+# gruntwork-io/terratest (the Terraform test framework); this repo's tests
+# never touch S3 client-side encryption (they exercise CloudFront/S3 site
+# delivery only).
+
+[[IgnoredVulns]]
+id = "GO-2022-0635"
+ignoreUntil = 2026-08-20
+reason = """
+aws-sdk-go v1.55.8 — CVE-2020-8912 / GHSA-7f33-f4f5-xwgw. In-band key
+negotiation in S3 Crypto SDK. Won't be fixed in v1. We don't use S3
+client-side encryption in our tests; the dep arrives via terratest.
+
+Re-evaluate before 2026-08-20 (or sooner if terratest drops aws-sdk-go v1).
+"""
+
+[[IgnoredVulns]]
+id = "GO-2022-0646"
+ignoreUntil = 2026-08-20
+reason = """
+aws-sdk-go v1.55.8 — CVE-2020-8911 / GHSA-f5pg-7wfw-84q9. CBC padding
+oracle in S3 Crypto SDK. Won't be fixed in v1. Same exposure analysis
+as GO-2022-0635: we don't use S3 client-side encryption.
+
+Re-evaluate before 2026-08-20 (or sooner if terratest drops aws-sdk-go v1).
+"""
